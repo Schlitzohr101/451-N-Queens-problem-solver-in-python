@@ -59,9 +59,30 @@ def conflicts(board: Board) -> int:
       diag1_counts[r - c]
       diag2_counts[r + c]
     """
-    # TODO: implement conflict counting
-    raise NotImplementedError("TODO: implement conflicts(board)")
-
+    
+    row_conflicts = 0
+    diag_conflicts = 0
+    #row check 
+    for i in range(len(board)):
+        if (i<len(board)-1) and board[i] in board[i+1:]:
+            row_conflicts+=1
+    
+         
+    #diag check...
+    for c in range(len(board)):
+        cur_row = board[c]
+        
+        for i in range(c+1, len(board)):
+            #count up_diag_conflicts
+            if (cur_row - (i-c) >= 0) and (board[i] == cur_row-(i-c)):
+                diag_conflicts+= 1
+            #count down_diag_conflicts
+            if (cur_row - (i-c) >= 0) and (board[i] == cur_row+(i-c)):
+                diag_conflicts+= 1
+        
+         
+    return row_conflicts + diag_conflicts
+    
 
 def max_pairs(n: int) -> int:
     """Max number of distinct pairs among N queens (used as a fitness baseline)."""
@@ -83,8 +104,17 @@ def sa_neighbor(board: Board) -> Board:
       • Choose a new row r' != current row
       • Return a copy of the board with that single change
     """
-    # TODO: implement neighbor generator
-    raise NotImplementedError("TODO: implement sa_neighbor(board)")
+    
+    new_board = board.copy()
+    
+    rand_row = random.randrange(0,len(board))
+    
+    rand_col = random.randrange(0,len(board))
+    
+    new_board[rand_col] = rand_row
+    
+    return new_board
+     
 
 
 def simulated_annealing(
@@ -109,6 +139,75 @@ def simulated_annealing(
     # Recommended: keep these stats
     # steps_total = 0
     # best_overall, best_energy_overall = None, math.inf
+    
+    #gen seed
+    if seed is not None:
+        random.seed(seed)
+        
+    steps_total = 0
+    best_board_overall = None
+    best_energy_overall = math.inf
+    
+    start_time = time.time()
+    
+    #count for restarts
+    for restart in range(restarts):
+        current_board = random_board(n)
+        current_energy = conflicts(current_board)
+        
+        best_board = current_board #this never really gets used...
+        best_energy = current_energy
+        
+        T = T0
+        
+        for step in range(max_steps): #step cap
+            steps_total += 1
+            
+            neighbor_board = sa_neighbor(current_board)
+            neighbor_energy = conflicts(neighbor_board)
+            
+            delta_E = neighbor_energy - current_energy
+            
+            if delta_E <= 0:
+                current_board = neighbor_board
+                current_energy = neighbor_energy
+            
+            else :
+                accept_prob = math.exp(-delta_E / T) #should be something like 0.####
+                if (random.random() < accept_prob): # if within that prob...
+                    current_board = neighbor_board
+                    current_energy = neighbor_energy
+            
+            if current_energy < best_energy:
+                best_energy = current_energy
+                best_board = current_board
+                
+            if current_energy < best_energy_overall:
+                best_energy_overall = current_energy
+                best_board_overall = current_board
+                
+            if current_energy == 0: #found sol
+                break
+            
+            T = alpha * T
+        
+        if best_energy_overall == 0: #found sol
+            break
+        
+        
+    
+    # Prepare statistics
+    stats = {
+        'steps_total': steps_total,
+        'restarts_used': restart + 1,
+        'best_energy': best_energy_overall,
+        'elapsed_time': time.time() - start_time,
+        'success': best_energy_overall == 0
+    }
+    
+    # Return solution (or None if not found) and stats
+    return (best_board_overall if best_energy_overall == 0 else None), stats    
+            
 
     # TODO: implement SA main loop
     raise NotImplementedError("TODO: implement simulated_annealing(...)")
@@ -128,8 +227,24 @@ def tournament_select(pop: List[Board], k: int) -> Board:
       • Randomly sample k individuals from pop
       • Return a COPY of the fittest (highest fitness)
     """
-    # TODO: implement tournament selection
-    raise NotImplementedError("TODO: implement tournament_select(pop, k)")
+    
+    samples = []
+    
+    for i in range(k):
+        cur_choice = random.choice(pop)
+        while cur_choice in samples:
+            cur_choice = random.choice(pop)
+        samples.append(cur_choice.copy())
+        
+    most_fit = None
+    most_fit_score = 0
+    for choice in range(len(samples)):
+        cur_fit_score = fitness(samples[choice])
+        if cur_fit_score > most_fit_score:
+            most_fit = samples[choice]
+    
+    return most_fit
+        
 
 
 def one_point_crossover(p1: Board, p2: Board) -> Tuple[Board, Board]:
@@ -138,10 +253,20 @@ def one_point_crossover(p1: Board, p2: Board) -> Tuple[Board, Board]:
       • Pick cut in [1, n-1]
       • c1 = p1[:cut] + p2[cut:]
       • c2 = p2[:cut] + p1[cut:]
+      
+      given two boards, crossover at the random point for every col and give back the new boards...
     """
-    # TODO: implement crossover
-    raise NotImplementedError("TODO: implement one_point_crossover(p1, p2)")
-
+    
+    b1 = p1.copy()
+    b2 = p2.copy()
+    
+    pivot = random.randrange(1, len(p1))
+    
+    r1 = b1[:pivot] +  b2[pivot:]
+    r2 = b2[:pivot] + b1[pivot:]
+    
+    return (r1,r2)
+    
 
 def mutate(board: Board, pmut: float) -> None:
     """TODO: With probability pmut per column, move the queen to a random row.
@@ -149,8 +274,11 @@ def mutate(board: Board, pmut: float) -> None:
       • For each column c, with prob pmut set board[c] to a random row (0..n-1)
       • In-place mutation (no return)
     """
-    # TODO: implement mutation
-    raise NotImplementedError("TODO: implement mutate(board, pmut)")
+    
+    for c in range(len(board)):
+        if (random.random() < pmut):
+            board[c] = random.randint(0, len(board)-1)
+            
 
 
 def ga_solve(
@@ -233,3 +361,13 @@ def main():
 
 if __name__ == "__main__":
     main()
+    # cur_board = random_board(8)
+    # print_board(cur_board)
+    
+    
+    # # print('SA NEIGHTBOR...')
+    # # print_board( sa_neighbor(cur_board))
+    
+    # # print(cur_board)
+    
+    # # print(conflicts(cur_board))
