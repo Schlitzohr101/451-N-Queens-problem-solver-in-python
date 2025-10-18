@@ -332,7 +332,7 @@ def ga_solve(
         
         #elitism implement
         new_pop = []
-        for i in range(elitism,len(board_and_fit_score_list)):
+        for i in range(elitism):
             new_pop.append(board_and_fit_score_list[i][0])
             
         while len(new_pop) < pop_size:
