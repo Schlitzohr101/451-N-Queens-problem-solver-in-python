@@ -415,16 +415,230 @@ def main():
     else:
         print("\nNo solution found (try different params or increase limits).")
 
+# ----------------------------
+# Testing Framework
+# ----------------------------
 
+def run_experiments(n: int, num_runs: int = 10):
+    """Run comprehensive experiments for both GA and SA."""
+    
+    print("="*80)
+    print(f"N-QUEENS SOLVER EXPERIMENTS (N={n}, Runs per config={num_runs})")
+    print("="*80)
+    
+    # ========== SIMULATED ANNEALING EXPERIMENTS ==========
+    print("\n" + "="*80)
+    print("SIMULATED ANNEALING EXPERIMENTS")
+    print("="*80)
+    
+    sa_configs = [
+        # Baseline
+        {"T0": 5.0, "alpha": 0.995, "max_steps": 20000},
+        # Vary T0
+        {"T0": 1.0, "alpha": 0.995, "max_steps": 20000},
+        {"T0": 10.0, "alpha": 0.995, "max_steps": 20000},
+        # Vary alpha (cooling schedule)
+        {"T0": 5.0, "alpha": 0.99, "max_steps": 20000},
+        {"T0": 5.0, "alpha": 0.999, "max_steps": 20000},
+        # Vary max_steps (steps_per_temp implicitly)
+        {"T0": 5.0, "alpha": 0.995, "max_steps": 10000},
+        {"T0": 5.0, "alpha": 0.995, "max_steps": 40000},
+    ]
+    
+    for config_idx, config in enumerate(sa_configs, 1):
+        print(f"\n--- SA Config {config_idx}: T0={config['T0']}, alpha={config['alpha']}, max_steps={config['max_steps']} ---")
+        
+        results = []
+        for run in range(num_runs):
+            seed = random.randint(0, 100000)
+            sol, stats = simulated_annealing(
+                n=n,
+                T0=config['T0'],
+                alpha=config['alpha'],
+                max_steps=config['max_steps'],
+                restarts=5,
+                seed=seed
+            )
+            results.append(stats)
+        
+        # Calculate statistics
+        success_count = sum(1 for r in results if r['success'])
+        success_rate = success_count / num_runs * 100
+        
+        times = [r['elapsed_time'] for r in results]
+        avg_time = sum(times) / len(times)
+        best_time = min(times)
+        
+        steps = [r['steps_total'] for r in results]
+        avg_steps = sum(steps) / len(steps)
+        best_steps = min(steps)
+        
+        successful_times = [r['elapsed_time'] for r in results if r['success']]
+        successful_steps = [r['steps_total'] for r in results if r['success']]
+        
+        print(f"  Success Rate: {success_rate:.1f}% ({success_count}/{num_runs})")
+        print(f"  Avg Time: {avg_time:.4f}s | Best Time: {best_time:.4f}s")
+        print(f"  Avg Steps: {avg_steps:.0f} | Best Steps: {best_steps}")
+        
+        if successful_times:
+            print(f"  Successful runs - Avg Time: {sum(successful_times)/len(successful_times):.4f}s | Avg Steps: {sum(successful_steps)/len(successful_steps):.0f}")
+    
+    # ========== GENETIC ALGORITHM EXPERIMENTS ==========
+    print("\n" + "="*80)
+    print("GENETIC ALGORITHM EXPERIMENTS")
+    print("="*80)
+    
+    ga_configs = [
+        # Baseline
+        {"pop": 200, "mut": 0.10, "tour": 3, "elite": 5},
+        # Vary population
+        {"pop": 100, "mut": 0.10, "tour": 3, "elite": 5},
+        {"pop": 400, "mut": 0.10, "tour": 3, "elite": 5},
+        # Vary mutation
+        {"pop": 200, "mut": 0.05, "tour": 3, "elite": 5},
+        {"pop": 200, "mut": 0.20, "tour": 3, "elite": 5},
+        # Vary tournament_k
+        {"pop": 200, "mut": 0.10, "tour": 2, "elite": 5},
+        {"pop": 200, "mut": 0.10, "tour": 5, "elite": 5},
+        # Vary elitism
+        {"pop": 200, "mut": 0.10, "tour": 3, "elite": 2},
+        {"pop": 200, "mut": 0.10, "tour": 3, "elite": 10},
+    ]
+    
+    for config_idx, config in enumerate(ga_configs, 1):
+        print(f"\n--- GA Config {config_idx}: pop={config['pop']}, mut={config['mut']}, tour_k={config['tour']}, elite={config['elite']} ---")
+        
+        results = []
+        for run in range(num_runs):
+            seed = random.randint(0, 100000)
+            sol, stats = ga_solve(
+                n=n,
+                pop_size=config['pop'],
+                generations=500,
+                mutation=config['mut'],
+                tournament_k=config['tour'],
+                elitism=config['elite'],
+                seed=seed
+            )
+            results.append(stats)
+        
+        # Calculate statistics
+        success_count = sum(1 for r in results if r['success'])
+        success_rate = success_count / num_runs * 100
+        
+        times = [r['elapsed_time'] for r in results]
+        avg_time = sum(times) / len(times)
+        best_time = min(times)
+        
+        gens = [r['generations'] for r in results]
+        avg_gens = sum(gens) / len(gens)
+        best_gens = min(gens)
+        
+        successful_times = [r['elapsed_time'] for r in results if r['success']]
+        successful_gens = [r['generations'] for r in results if r['success']]
+        
+        print(f"  Success Rate: {success_rate:.1f}% ({success_count}/{num_runs})")
+        print(f"  Avg Time: {avg_time:.4f}s | Best Time: {best_time:.4f}s")
+        print(f"  Avg Generations: {avg_gens:.0f} | Best Generations: {best_gens}")
+        
+        if successful_times:
+            print(f"  Successful runs - Avg Time: {sum(successful_times)/len(successful_times):.4f}s | Avg Gens: {sum(successful_gens)/len(successful_gens):.0f}")
+    
+    # ========== COMPARISON: GA vs SA (N=8) ==========
+    print("\n" + "="*80)
+    print("COMPARISON: GA vs SA (N=8, Baseline Configs)")
+    print("="*80)
+    
+    print("\n--- Running SA (baseline) ---")
+    sa_results = []
+    for run in range(num_runs):
+        seed = random.randint(0, 100000)
+        sol, stats = simulated_annealing(n=8, T0=5.0, alpha=0.995, max_steps=20000, restarts=5, seed=seed)
+        sa_results.append(stats)
+    
+    sa_success = sum(1 for r in sa_results if r['success']) / num_runs * 100
+    sa_avg_time = sum(r['elapsed_time'] for r in sa_results) / num_runs
+    sa_best_time = min(r['elapsed_time'] for r in sa_results)
+    
+    print(f"SA: Success={sa_success:.1f}%, Avg Time={sa_avg_time:.4f}s, Best Time={sa_best_time:.4f}s")
+    
+    print("\n--- Running GA (baseline) ---")
+    ga_results = []
+    for run in range(num_runs):
+        seed = random.randint(0, 100000)
+        sol, stats = ga_solve(n=8, pop_size=200, generations=500, mutation=0.10, tournament_k=3, elitism=5, seed=seed)
+        ga_results.append(stats)
+    
+    ga_success = sum(1 for r in ga_results if r['success']) / num_runs * 100
+    ga_avg_time = sum(r['elapsed_time'] for r in ga_results) / num_runs
+    ga_best_time = min(r['elapsed_time'] for r in ga_results)
+    
+    print(f"GA: Success={ga_success:.1f}%, Avg Time={ga_avg_time:.4f}s, Best Time={ga_best_time:.4f}s")
+    
+    print("\n" + "="*80)
+    print("SUMMARY")
+    print("="*80)
+    print(f"For N={n}:")
+    print(f"  SA is {'more' if sa_success > ga_success else 'less'} reliable (success rate: {sa_success:.1f}% vs {ga_success:.1f}%)")
+    print(f"  SA is {'faster' if sa_avg_time < ga_avg_time else 'slower'} on average ({sa_avg_time:.4f}s vs {ga_avg_time:.4f}s)")
+
+
+def test_scalability():
+    """Test scalability to N=10."""
+    print("\n" + "="*80)
+    print("SCALABILITY TEST: N=10")
+    print("="*80)
+    
+    num_runs = 10
+    n = 10
+    
+    print("\n--- SA (N=10) ---")
+    sa_results = []
+    for run in range(num_runs):
+        seed = random.randint(0, 100000)
+        sol, stats = simulated_annealing(n=n, T0=10.0, alpha=0.995, max_steps=50000, restarts=5, seed=seed)
+        sa_results.append(stats)
+    
+    sa_success = sum(1 for r in sa_results if r['success']) / num_runs * 100
+    sa_avg_time = sum(r['elapsed_time'] for r in sa_results) / num_runs
+    print(f"Success Rate: {sa_success:.1f}%, Avg Time: {sa_avg_time:.4f}s")
+    
+    print("\n--- GA (N=10) ---")
+    ga_results = []
+    for run in range(num_runs):
+        seed = random.randint(0, 100000)
+        sol, stats = ga_solve(n=n, pop_size=300, generations=1000, mutation=0.10, tournament_k=3, elitism=10, seed=seed)
+        ga_results.append(stats)
+    
+    ga_success = sum(1 for r in ga_results if r['success']) / num_runs * 100
+    ga_avg_time = sum(r['elapsed_time'] for r in ga_results) / num_runs
+    print(f"Success Rate: {ga_success:.1f}%, Avg Time: {ga_avg_time:.4f}s")
+    
+    print("\nObservation: As N increases, both runtime and reliability are affected.")
+    print("SA may need higher T0 and more steps. GA may need larger population and more generations.")
+
+    
+        
 if __name__ == "__main__":
-    main()
-    # cur_board = random_board(8)
-    # print_board(cur_board)
+    # main()
+    # running SA and getting values
+    run_experiments(n=8, num_runs=10)
     
+    # Test scalability to N=10
+    test_scalability()
     
-    # # print('SA NEIGHTBOR...')
-    # # print_board( sa_neighbor(cur_board))
+    print("\n" + "="*80)
+    print("GUIDING QUESTIONS - ANALYSIS")
+    print("="*80)
+    print("\n1. How do GA and SA compare on success rate and time for N=8?")
+    print("   See the 'COMPARISON' section above for direct comparison.")
+    print("\n2. Which GA parameters most affect performance? Why?")
+    print("   - Population size: Larger populations explore more but take longer per generation.")
+    print("   - Mutation rate: Too low = premature convergence; too high = random search.")
+    print("   - Tournament k: Higher k = more selection pressure, faster convergence.")
+    print("   - Elitism: Preserves best solutions, improves reliability.")
+    print("\n3. How does the cooling schedule (alpha) trade off quality vs. time?")
+    print("   - Higher alpha (slower cooling): More exploration, better quality, longer time.")
+    print("   - Lower alpha (faster cooling): Less exploration, faster, may miss solutions.")
+    print("="*80)
     
-    # # print(cur_board)
-    
-    # # print(conflicts(cur_board))
