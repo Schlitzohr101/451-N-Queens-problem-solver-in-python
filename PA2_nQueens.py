@@ -209,9 +209,6 @@ def simulated_annealing(
     return (best_board_overall if best_energy_overall == 0 else None), stats    
             
 
-    # TODO: implement SA main loop
-    raise NotImplementedError("TODO: implement simulated_annealing(...)")
-
 # ----------------------------
 # Genetic Algorithm (GA) -- TODOs in selection, crossover, mutation, loop
 # ----------------------------
@@ -301,9 +298,69 @@ def ga_solve(
       • Track best board; stop early if is_goal(best)
       • Return (solution_or_None, stats)
     """
-    # TODO: implement GA main loop
-    raise NotImplementedError("TODO: implement ga_solve(...)")
-
+    
+    if seed is not None:
+        random.seed(seed)
+        
+    start_time = time.time()
+    
+    #init pop
+    pop = [random_board(n) for _ in range(pop_size)]
+    
+    
+    best_board = None
+    best_fitness = -1
+    
+    for generation_count in range(generations):
+        board_and_fit_score_list = []
+        for board in range(len(pop)):
+            board_and_fit_score_list.append((pop[board], fitness(pop[board])))
+            
+            #we set x[1] here to x because what we want to sort with
+        board_and_fit_score_list.sort(key=lambda x: x[1], reverse=True)
+         
+        current_best_board = board_and_fit_score_list[0][0]
+        current_best_score = board_and_fit_score_list[0][1]
+        
+        if current_best_score > best_fitness:
+            best_fitness = current_best_score
+            best_board = current_best_board
+            
+        if is_goal(current_best_board):
+            best_board = current_best_board
+            break
+        
+        #elitism implement
+        new_pop = []
+        for i in range(elitism,len(board_and_fit_score_list)):
+            new_pop.append(board_and_fit_score_list[i][0])
+            
+        while len(new_pop) < pop_size:
+            parent_1 = tournament_select(pop, tournament_k)
+            parent_2 = tournament_select(pop, tournament_k)
+            
+            child_1, child_2 = one_point_crossover(parent_1,parent_2)
+            
+            mutate(child_1, mutation)
+            mutate(child_2, mutation)
+            
+            new_pop.append(child_1)
+            if len(new_pop) < pop_size:
+                new_pop.append(child_2)
+        
+        pop = new_pop
+        
+    stats = {
+        'generations': generation_count + 1,
+        'best_fitness': best_fitness,
+        'max_fitness': max_pairs(n),
+        'elapsed_time': time.time() - start_time,
+        'success': best_board is not None and is_goal(best_board)
+    }
+    
+    return (best_board if best_board is not None and is_goal(best_board) else None), stats
+    
+    
 # ----------------------------
 # CLI (provided) — you may extend for logging/plots
 # ----------------------------
